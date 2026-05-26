@@ -74,7 +74,104 @@
   --font-head: 'Quicksand', sans-serif;
   --font-body: 'Quicksand', sans-serif;
 }
+/* ═══════════════════════════════════════
+   SPLASH SCREEN
+═══════════════════════════════════════ */
 
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  background:
+    radial-gradient(circle at top, #6c63ff22, transparent 35%),
+    var(--bg);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  transition:
+    opacity .45s ease,
+    visibility .45s ease;
+}
+
+#splash.hide {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.splash-logo {
+  font-size: 60px;
+  animation: splashPop .6s ease;
+}
+
+.splash-title {
+  font-family: var(--font-head);
+  font-size: 30px;
+  font-weight: 800;
+
+  margin-top: 10px;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--accent),
+      var(--accent2)
+    );
+
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.splash-text {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.splash-bar {
+  width: 190px;
+  height: 7px;
+
+  margin-top: 22px;
+
+  background: var(--surface2);
+
+  border-radius: 999px;
+  overflow: hidden;
+
+  border: 1px solid var(--border);
+}
+
+#splash-progress {
+  width: 0%;
+  height: 100%;
+
+  background:
+    linear-gradient(
+      90deg,
+      var(--accent),
+      var(--accent2)
+    );
+
+  border-radius: inherit;
+
+  transition: width .25s ease;
+}
+
+@keyframes splashPop {
+  from {
+    opacity: 0;
+    transform: scale(.7);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 /* ═══════════════════════════════════════
    BASE
 ═══════════════════════════════════════ */
@@ -272,10 +369,86 @@ header {
 .toast.ok  { border-color:var(--green)66; color:var(--green); }
 .toast.err { border-color:var(--red)66;   color:var(--red); }
 
+/* ═══════════════════════════════════════
+   CUSTOM CURSOR
+═══════════════════════════════════════ */
+
+* {
+  cursor: none;
+}
+
+.cursor-dot {
+  position: fixed;
+
+  width: 8px;
+  height: 8px;
+
+  background: var(--accent);
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  z-index: 10000;
+
+  transform: translate(-50%, -50%);
+}
+
+.cursor-ring {
+  position: fixed;
+
+  width: 34px;
+  height: 34px;
+
+  border: 1.5px solid var(--accent);
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  z-index: 9999;
+
+  transform: translate(-50%, -50%);
+
+  transition:
+    width .15s,
+    height .15s,
+    background .15s,
+    border-color .2s;
+}
+
+body.cursor-hover .cursor-ring {
+  width: 48px;
+  height: 48px;
+
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+/* mobile */
+@media (pointer: coarse) {
+  * {
+    cursor: auto;
+  }
+
+  .cursor-dot,
+  .cursor-ring {
+    display: none;
+  }
+}
+
 .erro-conexao { background:var(--red)15; border:1px solid var(--red)44; color:var(--red); border-radius:12px; padding:14px; font-size:13px; margin-bottom:16px; line-height:1.5; }
 </style>
 </head>
 <body data-theme="padrao">
+  <div id="splash">
+  <div class="splash-logo" id="splash-logo">📚</div>
+  <div class="splash-title">Tarefas</div>
+  <div class="splash-text">Carregando suas tarefas...</div>
+
+  <div class="splash-bar">
+    <div id="splash-progress"></div>
+  </div>
+</div>
 
 <header>
   <div class="logo" id="logo-text">📚 Tarefas</div>
@@ -364,6 +537,8 @@ header {
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="cursor-dot"></div>
+<div class="cursor-ring"></div>
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbwKw_yvBPd2Hw1BmwWhVSw7xz3R3YWIS-KZfrfwhFP_ts8cedARaAEM_nVaFAed092h/exec';
@@ -436,15 +611,38 @@ async function api(action, params={}) {
 
 // ── CARREGAR ──
 async function carregar() {
-  document.getElementById('lista').innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+
+  splashProgress(20);
+
+  document.getElementById('lista').innerHTML =
+    '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+
   try {
+
+    splashProgress(45);
+
     const d = await api('getTarefas');
-    if (d.ok === false) throw new Error(d.erro);
+
+    splashProgress(75);
+
+    if (d.ok === false) {
+      throw new Error(d.erro);
+    }
+
     state = d;
+
     preencherFiltros();
+
     render();
+
+    esconderSplash();
+
   } catch(e) {
-    document.getElementById('lista').innerHTML = '<div class="erro-conexao">⚠️ Erro ao conectar com a planilha.<br>Verifique se o script está publicado corretamente.</div>';
+
+    document.getElementById('lista').innerHTML =
+      '<div class="erro-conexao">⚠️ Erro ao conectar com a planilha.<br>Verifique se o script está publicado corretamente.</div>';
+
+    esconderSplash();
   }
 }
 
@@ -648,6 +846,68 @@ function toast(msg,tipo='ok') {
   t.textContent=msg; t.className='toast show '+tipo;
   clearTimeout(t._t); t._t=setTimeout(()=>t.className='toast',2500);
 }
+function splashProgress(v) {
+  const bar = document.getElementById('splash-progress');
+
+  if (bar) {
+    bar.style.width = v + '%';
+  }
+}
+
+function esconderSplash() {
+  splashProgress(100);
+
+  setTimeout(() => {
+    document
+      .getElementById('splash')
+      ?.classList.add('hide');
+  }, 350);
+}
+
+// ── CURSOR ──
+
+const dot  = document.querySelector('.cursor-dot');
+const ring = document.querySelector('.cursor-ring');
+
+document.addEventListener('mousemove', e => {
+
+  dot.style.left = e.clientX + 'px';
+  dot.style.top  = e.clientY + 'px';
+
+  ring.animate({
+    left: e.clientX + 'px',
+    top:  e.clientY + 'px'
+  }, {
+    duration: 300,
+    fill: 'forwards'
+  });
+
+});
+
+// hover effect
+document.addEventListener('mouseover', e => {
+
+  if (
+    e.target.closest(
+      'button, select, input, .tab, .card'
+    )
+  ) {
+    document.body.classList.add('cursor-hover');
+  }
+
+});
+
+document.addEventListener('mouseout', e => {
+
+  if (
+    e.target.closest(
+      'button, select, input, .tab, .card'
+    )
+  ) {
+    document.body.classList.remove('cursor-hover');
+  }
+
+});
 
 // ── INIT ──
 carregarTema();
